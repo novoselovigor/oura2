@@ -69,46 +69,10 @@ export default function App() {
   // Raw responses lookup for transparency ("никаких догадок")
   const [rawResponses, setRawResponses] = useState<Record<string, any>>({});
 
-  // Read saved token config on mount
-  useEffect(() => {
-    const savedToken = localStorage.getItem("oura_token") || "";
-    const isLocal = isLocalServerAvailable();
-    const defaultProxy: ProxyMode = isLocal ? "localproxy" : "corsproxy.io";
-    
-    let savedProxyMode = (localStorage.getItem("oura_proxy_mode") as ProxyMode) || defaultProxy;
-    
-    // Automatically correct stale localproxy settings if running on a static page (e.g. GitHub Pages)
-    if (savedProxyMode === "localproxy" && !isLocal) {
-      savedProxyMode = "corsproxy.io";
-    }
-
-    const savedCustomUrl = localStorage.getItem("oura_custom_url") || "";
-
-    setConfig({
-      token: savedToken,
-      proxyMode: savedProxyMode,
-      customProxyUrl: savedCustomUrl,
-    });
-  }, []);
-
-  const handleConfigChange = (newConfig: ApiConfig) => {
-    setConfig(newConfig);
-    // Write incrementally to localStorage
-    localStorage.setItem("oura_token", newConfig.token);
-    localStorage.setItem("oura_proxy_mode", newConfig.proxyMode);
-    if (newConfig.customProxyUrl) {
-      localStorage.setItem("oura_custom_url", newConfig.customProxyUrl);
-    }
-  };
-
-  const handleDatesChange = (start: string, end: string) => {
-    setStartDate(start);
-    setEndDate(end);
-  };
-
   // Perform full concurrent fetch of Oura API
-  const handleFetchData = async () => {
-    if (!config.token) {
+  const handleFetchData = async (activeConfig?: ApiConfig) => {
+    const currentConfig = activeConfig || config;
+    if (!currentConfig.token) {
       setErrorMsg("Please enter your Oura Personal Access Token (API Key) before triggering sync.");
       return;
     }
@@ -119,7 +83,7 @@ export default function App() {
 
     try {
       const result = await fetchAllOuraData(
-        config,
+        currentConfig,
         startDate,
         endDate,
         // Raw saver callback
@@ -139,6 +103,50 @@ export default function App() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Read saved token config on mount
+  useEffect(() => {
+    const savedToken = localStorage.getItem("oura_token") || "";
+    const isLocal = isLocalServerAvailable();
+    const defaultProxy: ProxyMode = isLocal ? "localproxy" : "corsproxy.io";
+    
+    let savedProxyMode = (localStorage.getItem("oura_proxy_mode") as ProxyMode) || defaultProxy;
+    
+    // Automatically correct stale localproxy settings if running on a static page (e.g. GitHub Pages)
+    if (savedProxyMode === "localproxy" && !isLocal) {
+      savedProxyMode = "corsproxy.io";
+    }
+
+    const savedCustomUrl = localStorage.getItem("oura_custom_url") || "";
+
+    const initialConfig = {
+      token: savedToken,
+      proxyMode: savedProxyMode,
+      customProxyUrl: savedCustomUrl,
+    };
+
+    setConfig(initialConfig);
+
+    // Auto-fetch data if token is already present
+    if (savedToken) {
+      handleFetchData(initialConfig);
+    }
+  }, []);
+
+  const handleConfigChange = (newConfig: ApiConfig) => {
+    setConfig(newConfig);
+    // Write incrementally to localStorage
+    localStorage.setItem("oura_token", newConfig.token);
+    localStorage.setItem("oura_proxy_mode", newConfig.proxyMode);
+    if (newConfig.customProxyUrl) {
+      localStorage.setItem("oura_custom_url", newConfig.customProxyUrl);
+    }
+  };
+
+  const handleDatesChange = (start: string, end: string) => {
+    setStartDate(start);
+    setEndDate(end);
   };
 
   // Render correct Active Tab
