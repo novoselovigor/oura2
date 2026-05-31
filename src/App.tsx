@@ -16,7 +16,7 @@ import {
   TrendingUp
 } from "lucide-react";
 
-import { ApiConfig, fetchAllOuraData, formatDate, ProxyMode } from "./utils/ouraApi";
+import { ApiConfig, fetchAllOuraData, formatDate, ProxyMode, isLocalServerAvailable } from "./utils/ouraApi";
 import { OuraCombinedData } from "./types";
 
 import OuraSettings from "./components/OuraSettings";
@@ -51,10 +51,13 @@ export default function App() {
   const [endDate, setEndDate] = useState<string>(() => formatDate(new Date()));
 
   // API configurations
-  const [config, setConfig] = useState<ApiConfig>({
-    token: "",
-    proxyMode: "localproxy",
-    customProxyUrl: "",
+  const [config, setConfig] = useState<ApiConfig>(() => {
+    const isLocal = isLocalServerAvailable();
+    return {
+      token: "",
+      proxyMode: isLocal ? "localproxy" : "corsproxy.io",
+      customProxyUrl: "",
+    };
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -69,7 +72,16 @@ export default function App() {
   // Read saved token config on mount
   useEffect(() => {
     const savedToken = localStorage.getItem("oura_token") || "";
-    const savedProxyMode = (localStorage.getItem("oura_proxy_mode") as ProxyMode) || "localproxy";
+    const isLocal = isLocalServerAvailable();
+    const defaultProxy: ProxyMode = isLocal ? "localproxy" : "corsproxy.io";
+    
+    let savedProxyMode = (localStorage.getItem("oura_proxy_mode") as ProxyMode) || defaultProxy;
+    
+    // Automatically correct stale localproxy settings if running on a static page (e.g. GitHub Pages)
+    if (savedProxyMode === "localproxy" && !isLocal) {
+      savedProxyMode = "corsproxy.io";
+    }
+
     const savedCustomUrl = localStorage.getItem("oura_custom_url") || "";
 
     setConfig({

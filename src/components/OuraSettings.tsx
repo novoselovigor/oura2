@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Key, Calendar, Shield, Cpu, RefreshCw, AlertCircle, HelpCircle } from "lucide-react";
-import { ApiConfig, ProxyMode, formatDate } from "../utils/ouraApi";
+import { ApiConfig, ProxyMode, formatDate, isLocalServerAvailable } from "../utils/ouraApi";
 
 interface OuraSettingsProps {
   config: ApiConfig;
@@ -197,9 +197,12 @@ export default function OuraSettings({
               <div className="bg-[#0B0B0C] p-4 rounded-2xl border border-gray-800 text-xs text-gray-300 leading-relaxed mb-1">
                 <p className="font-semibold text-[#D4AF37] mb-1">Why bypass CORS with a proxy?</p>
                 <p>
-                  Oura&apos;s API blocks raw client-side requests from preview domains due to strict CORS policies. 
-                  To solve this, <strong className="text-white">Local Secure Proxy</strong> routes your token securely through this application&apos;s node server to contact Oura natively. 
-                  This is fast, 100% reliable, and private. You can also select alternative standard public proxies.
+                  Oura&apos;s API blocks raw browser-originated client requests due to strict CORS policies. 
+                  {isLocalServerAvailable() ? (
+                    <span> To solve this, the <strong className="text-white">Local Secure Proxy</strong> routes your token securely through this preview&apos;s Node.js server. This is fast, private, and CORS-free.</span>
+                  ) : (
+                    <span> Since you are deployed on a static web host (like GitHub), we route requests safely through browser-friendly public CORS gateways like <strong className="text-white">corsproxy.io</strong> or <strong className="text-white">allorigins.win</strong>, or you can provide a custom proxy.</span>
+                  )}
                 </p>
               </div>
             )}
@@ -210,8 +213,11 @@ export default function OuraSettings({
               onChange={handleProxyModeChange}
               className="w-full bg-[#0B0B0C] border border-gray-800 rounded-2xl px-4 py-3 text-sm text-[#F5F5F7] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 focus:border-[#D4AF37] transition-all"
             >
-              <option value="localproxy">Local Secure Proxy (Recommended / CORS-free)</option>
-              <option value="corsproxy.io">corsproxy.io (Public Web Proxy)</option>
+              {isLocalServerAvailable() && (
+                <option value="localproxy">Local Secure Proxy (Recommended / CORS-free)</option>
+              )}
+              <option value="corsproxy.io">{isLocalServerAvailable() ? "corsproxy.io (Public Web Proxy)" : "corsproxy.io (Recommended / CORS-free)"}</option>
+              <option value="allorigins">allorigins.win (Alternative Public Proxy)</option>
               <option value="direct">Direct (Direct Client to Oura - fails CORS in pure browser)</option>
               <option value="custom">Custom Proxy URL</option>
             </select>

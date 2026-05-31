@@ -9,12 +9,28 @@ import {
   OuraResponse
 } from "../types";
 
-export type ProxyMode = "localproxy" | "corsproxy.io" | "direct" | "custom";
+export type ProxyMode = "localproxy" | "corsproxy.io" | "allorigins" | "direct" | "custom";
 
 export interface ApiConfig {
   token: string;
   proxyMode: ProxyMode;
   customProxyUrl?: string;
+}
+
+/**
+ * Detects if the current environment hosts a custom server backend (Local/Sandbox Cloud Run)
+ */
+export function isLocalServerAvailable(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host.endsWith(".run.app") ||
+    host.endsWith(".wspace.app") ||
+    host.includes("aistudio") ||
+    host.includes("google")
+  );
 }
 
 /**
@@ -42,7 +58,15 @@ export function buildUrl(endpoint: string, queryParams: Record<string, string>, 
 
   const targetUrl = urlObj.toString();
 
-  switch (config.proxyMode) {
+  // If localproxy is chosen but no backend server exists (e.g. running statically on GitHub Pages),
+  // automatically redirect requests through corsproxy.io so the app works seamlessly out-of-the-box.
+  let activeProxyMode = config.proxyMode;
+  if (activeProxyMode === "localproxy" && !isLocalServerAvailable()) {
+    console.warn("[Oura API Sync] Local secure proxy is unavailable on this host. Falling back to corsproxy.io");
+    activeProxyMode = "corsproxy.io";
+  }
+
+  switch (activeProxyMode) {
     case "localproxy":
       const localUrlObj = new URL(`/api/oura/${endpoint}`, window.location.origin);
       Object.entries(queryParams).forEach(([key, val]) => {
@@ -51,6 +75,8 @@ export function buildUrl(endpoint: string, queryParams: Record<string, string>, 
       return localUrlObj.pathname + localUrlObj.search;
     case "corsproxy.io":
       return `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
+    case "allorigins":
+      return `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
     case "custom":
       if (config.customProxyUrl) {
         // Strip trailing slash if present, check for placeholder or append target as suffix
