@@ -13,7 +13,8 @@ import {
   Clock,
   AlertCircle,
   HelpCircle,
-  TrendingUp
+  TrendingUp,
+  Brain
 } from "lucide-react";
 
 import { ApiConfig, fetchAllOuraData, formatDate, ProxyMode, isLocalServerAvailable } from "./utils/ouraApi";
@@ -27,6 +28,7 @@ import ActivityTab from "./components/ActivityTab";
 import HeartRateTab from "./components/HeartRateTab";
 import WorkoutsTab from "./components/WorkoutsTab";
 import RawDataTab from "./components/RawDataTab";
+import AiCoachTab from "./components/AiCoachTab";
 
 export default function App() {
   // Navigation tabs
@@ -37,6 +39,7 @@ export default function App() {
     { id: "Activity", label: "Activity", icon: Activity },
     { id: "HeartRate", label: "Heart Rate", icon: Heart },
     { id: "Workouts", label: "Workouts", icon: Trophy },
+    { id: "AICoach", label: "ИИ Тренер", icon: Brain },
     { id: "RawData", label: "Raw JSON", icon: Terminal },
   ];
 
@@ -128,6 +131,21 @@ export default function App() {
 
     setConfig(initialConfig);
 
+    // Instant load from Cache if available
+    const cachedDataStr = localStorage.getItem("oura_cached_data");
+    const cachedRawStr = localStorage.getItem("oura_raw_responses");
+    if (cachedDataStr) {
+      try {
+        const parsed = JSON.parse(cachedDataStr);
+        setData(parsed);
+        if (cachedRawStr) {
+          setRawResponses(JSON.parse(cachedRawStr));
+        }
+      } catch (e) {
+        console.warn("Failed to load cached Oura data on mount:", e);
+      }
+    }
+
     // Auto-fetch data if token is already present
     if (savedToken) {
       handleFetchData(initialConfig);
@@ -142,6 +160,23 @@ export default function App() {
     if (newConfig.customProxyUrl) {
       localStorage.setItem("oura_custom_url", newConfig.customProxyUrl);
     }
+  };
+
+  const handleSignOut = () => {
+    if (window.confirm && !window.confirm("Are you sure you want to log out and clear all saved Oura details from this browser's memory?")) {
+      return;
+    }
+    localStorage.removeItem("oura_token");
+    localStorage.removeItem("oura_cached_data");
+    localStorage.removeItem("oura_raw_responses");
+    setConfig({
+      token: "",
+      proxyMode: isLocalServerAvailable() ? "localproxy" : "corsproxy.io",
+      customProxyUrl: "",
+    });
+    setData(null);
+    setRawResponses({});
+    setErrorMsg(null);
   };
 
   const handleDatesChange = (start: string, end: string) => {
@@ -166,6 +201,8 @@ export default function App() {
         return <HeartRateTab heartRate={data.heartRate} />;
       case "Workouts":
         return <WorkoutsTab workouts={data.workouts} />;
+      case "AICoach":
+        return <AiCoachTab data={data} />;
       case "RawData":
         return <RawDataTab rawResponses={rawResponses} />;
       default:
@@ -215,7 +252,7 @@ export default function App() {
               <button
                 type="button"
                 id="header-sync-btn"
-                onClick={handleFetchData}
+                onClick={() => handleFetchData()}
                 disabled={isLoading}
                 className="p-2 text-gray-400 hover:text-[#F5F5F7] bg-[#1C1C1E] hover:bg-[#2C2C2E] rounded-xl border border-gray-800 transition-all cursor-pointer"
                 title="Sync Latest Data"
@@ -229,8 +266,49 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 space-y-6">
-        {/* Onboarding Mode: if no data has been successfully fetched yet */}
-        {!data ? (
+        {/* Background update errors helper block for dashboard mode */}
+        {data && errorMsg && (
+          <div className="bg-red-950/25 border border-red-900/40 rounded-3xl p-5 flex items-center justify-between text-xs text-red-300 gap-4 animate-fade-in mb-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+              <div>
+                <span className="font-semibold text-red-200">Latest Sync Incomplete (Displaying Cached Data)</span>
+                <p className="text-gray-400 mt-1 leading-normal">
+                  Could not update latest statistics: {errorMsg}. Showing your last successfully fetched data.
+                </p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setErrorMsg(null)}
+              className="text-[10px] text-gray-405 hover:text-white uppercase tracking-wider font-bold bg-[#1C1C1E] px-3 py-1.5 rounded-xl border border-gray-800 transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Loading State for initial auto-sync when token is saved but no cached data is ready yet */}
+        {isLoading && !data && config.token ? (
+          <div className="max-w-md mx-auto py-24 text-center space-y-6 animate-fade-in bg-[#1C1C1E]/50 border border-gray-850 p-8 rounded-3xl mt-12 shadow-2xl">
+            <div className="relative w-16 h-16 mx-auto">
+              <div className="w-16 h-16 rounded-full border-4 border-gray-800/80 border-t-[#D4AF37] border-b-[#8A6D3B] animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center text-[#D4AF37] font-semibold text-lg font-display">
+                O
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-light tracking-tight text-[#F5F5F7] font-display">Synchronizing Oura Metrics...</h3>
+              <p className="text-xs text-gray-400 max-w-xs mx-auto leading-relaxed">
+                We found your saved Access Token and are refreshing your latest health, sleep, activity, and readiness records automatically.
+              </p>
+            </div>
+            <div className="pt-2">
+              <span className="inline-flex items-center gap-2 px-3 py-1 bg-[#1C1C1E] rounded-full border border-gray-800 text-[10px] font-mono text-gray-400 uppercase tracking-widest">
+                Proxy Mode: {config.proxyMode}
+              </span>
+            </div>
+          </div>
+        ) : !data ? (
           <div className="max-w-2xl mx-auto space-y-6 py-6 animate-fade-in">
             {/* Aesthetic greeting card */}
             <div className="text-center space-y-3">
@@ -255,8 +333,20 @@ export default function App() {
               onConfigChange={handleConfigChange}
               onDatesChange={handleDatesChange}
               onFetchData={handleFetchData}
+              onSignOut={handleSignOut}
+              onCancel={localStorage.getItem("oura_cached_data") ? () => {
+                const cached = localStorage.getItem("oura_cached_data");
+                if (cached) {
+                  try {
+                    setData(JSON.parse(cached));
+                    setErrorMsg(null);
+                  } catch (e) {
+                    console.warn(e);
+                  }
+                }
+              } : undefined}
               errorMsg={errorMsg}
-              hasData={false}
+              hasData={localStorage.getItem("oura_cached_data") !== null}
             />
 
             {/* Informational reassurance of privacy */}
@@ -275,7 +365,7 @@ export default function App() {
           <div className="space-y-6 animate-fade-in">
             
             {/* Horizontal navigation tabs bar following bento proportions */}
-            <div className="bg-[#1C1C1E] border border-gray-800 p-1.5 rounded-3xl flex overflow-x-auto whitespace-nowrap scrollbar-none gap-1 sm:grid sm:grid-cols-7 shadow-lg">
+            <div className="bg-[#1C1C1E] border border-gray-800 p-1.5 rounded-3xl flex overflow-x-auto whitespace-nowrap scrollbar-none gap-1 sm:grid sm:grid-cols-8 shadow-lg">
               {tabs.map((tab) => {
                 const isActive = activeTab === tab.id;
                 const Icon = tab.icon;

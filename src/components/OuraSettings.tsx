@@ -10,6 +10,8 @@ interface OuraSettingsProps {
   onConfigChange: (config: ApiConfig) => void;
   onDatesChange: (start: string, end: string) => void;
   onFetchData: () => void;
+  onSignOut?: () => void;
+  onCancel?: () => void;
   errorMsg: string | null;
   hasData: boolean;
 }
@@ -22,6 +24,8 @@ export default function OuraSettings({
   onConfigChange,
   onDatesChange,
   onFetchData,
+  onSignOut,
+  onCancel,
   errorMsg,
   hasData,
 }: OuraSettingsProps) {
@@ -260,24 +264,51 @@ export default function OuraSettings({
             </div>
           )}
 
-          <button
-            type="submit"
-            id="fetch-oura-data-btn"
-            disabled={isLoading}
-            className="w-full bg-[#D4AF37] hover:bg-[#c29f2f] active:bg-[#aa8b27] disabled:bg-gray-800 disabled:text-gray-500 text-[#0B0B0C] font-bold px-6 py-4 rounded-2xl transition-all shadow-lg shadow-[#D4AF37]/5 flex items-center justify-center gap-2.5 text-sm cursor-pointer"
-          >
-            {isLoading ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Pulling Oura Sync Servers...</span>
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-4 h-4" />
-                <span>{hasData ? "Refresh Oura Data" : "Load Oura Ring Data"}</span>
-              </>
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+            <button
+              type="submit"
+              id="fetch-oura-data-btn"
+              disabled={isLoading}
+              className="flex-1 min-w-[200px] bg-[#D4AF37] hover:bg-[#c29f2f] active:bg-[#aa8b27] disabled:bg-gray-800 disabled:text-gray-500 text-[#0B0B0C] font-bold px-6 py-4 rounded-2xl transition-all shadow-lg shadow-[#D4AF37]/5 flex items-center justify-center gap-2.5 text-sm cursor-pointer"
+            >
+              {isLoading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Pulling Oura Sync Servers...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  <span>{hasData ? "Refresh Oura Data" : "Load Oura Ring Data"}</span>
+                </>
+              )}
+            </button>
+
+            {onCancel && (
+              <button
+                type="button"
+                id="cancel-settings-btn"
+                onClick={onCancel}
+                disabled={isLoading}
+                className="bg-[#1C1C1E] hover:bg-[#2C2C2E] border border-gray-800 text-gray-300 font-semibold px-6 py-4 rounded-2xl transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
+              >
+                <span>Go Back</span>
+              </button>
             )}
-          </button>
+
+            {onSignOut && config.token && (
+              <button
+                type="button"
+                id="clear-token-btn"
+                onClick={onSignOut}
+                disabled={isLoading}
+                className="bg-transparent hover:bg-red-950/20 active:bg-red-950/30 border border-red-900/40 text-red-500 font-semibold px-6 py-4 rounded-2xl transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
+                title="Log out and delete access token from browser memory"
+              >
+                <span>Clear Saved Key & Cache</span>
+              </button>
+            )}
+          </div>
         </div>
       </form>
     </div>
