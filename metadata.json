@@ -1,0 +1,6 @@
+{
+  "name": "Oura Ring Dashboard",
+  "description": "A highly detailed, real-time client-side dashboard for visualising Oura Ring sleep, readiness, activity, and heart rate data using your Personal Access Token.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
